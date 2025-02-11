@@ -7,7 +7,7 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 
 # ------------------------
-# Initialize Flask app and CORS
+# Initialize Flask app and enable CORS
 # ------------------------
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -16,32 +16,22 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # BigQuery Authentication
 # ------------------------
 PROJECT_ID = "automatic-spotify-scraper"
-# Use the environment variable if available; otherwise, default to a local file.
-import os
-import json
-from google.cloud import bigquery
-from google.oauth2 import service_account
 
-PROJECT_ID = "automatic-spotify-scraper"
+# Get the environment variable; if not set, default to the filename.
+creds_input = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "automatic-spotify-scraper.json")
 
-# Get the credentials JSON from the environment variable.
-# (Make sure that your environment variable contains the full JSON string!)
-creds_json_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-if creds_json_str:
-    try:
-        # Parse the JSON string into a dictionary.
-        creds_info = json.loads(creds_json_str)
-        # Create credentials from the service account info dictionary.
+try:
+    # If the environment variable ends with ".json", assume it's a file path.
+    if creds_input.strip().endswith(".json"):
+        credentials = service_account.Credentials.from_service_account_file(creds_input)
+    else:
+        # Otherwise, assume it's a JSON string.
+        creds_info = json.loads(creds_input)
         credentials = service_account.Credentials.from_service_account_info(creds_info)
-        # Initialize the BigQuery client.
-        client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
-        print("✅ BigQuery authentication successful!")
-    except Exception as e:
-        print(f"❌ Failed to authenticate with BigQuery: {e}")
-        client = None
-else:
-    print("❌ No credentials found in environment variable!")
+    client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
+    print("✅ BigQuery authentication successful!")
+except Exception as e:
+    print(f"❌ Failed to authenticate with BigQuery: {e}")
     client = None
 
 # ------------------------
@@ -49,15 +39,13 @@ else:
 # ------------------------
 def read_from_bigquery(dataset, table):
     """
-    Read data from a BigQuery table.
-    (Assumes a simple query; you can modify this as needed.)
+    Read data from a BigQuery table and return as a Pandas DataFrame.
     """
     query = f"SELECT * FROM `{PROJECT_ID}.{dataset}.{table}` LIMIT 10000"
     query_job = client.query(query)
     results = query_job.result()
     data = [dict(row) for row in results]
-    df = pd.DataFrame(data)
-    return df
+    return pd.DataFrame(data)
 
 # ------------------------
 # Helper function: clean playlist id

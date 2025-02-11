@@ -17,14 +17,31 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # ------------------------
 PROJECT_ID = "automatic-spotify-scraper"
 # Use the environment variable if available; otherwise, default to a local file.
-SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "automatic-spotify-scraper.json")
+import os
+import json
+from google.cloud import bigquery
+from google.oauth2 import service_account
 
-try:
-    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE)
-    client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
-    print("✅ BigQuery authentication successful!")
-except Exception as e:
-    print(f"❌ Failed to authenticate with BigQuery: {e}")
+PROJECT_ID = "automatic-spotify-scraper"
+
+# Get the credentials JSON from the environment variable.
+# (Make sure that your environment variable contains the full JSON string!)
+creds_json_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+if creds_json_str:
+    try:
+        # Parse the JSON string into a dictionary.
+        creds_info = json.loads(creds_json_str)
+        # Create credentials from the service account info dictionary.
+        credentials = service_account.Credentials.from_service_account_info(creds_info)
+        # Initialize the BigQuery client.
+        client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
+        print("✅ BigQuery authentication successful!")
+    except Exception as e:
+        print(f"❌ Failed to authenticate with BigQuery: {e}")
+        client = None
+else:
+    print("❌ No credentials found in environment variable!")
     client = None
 
 # ------------------------

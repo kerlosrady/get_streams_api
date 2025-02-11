@@ -44,7 +44,7 @@ def fetch_data(dataset, table, playlist_id):
     """
     query = f"""
         SELECT 
-            `Spotify Playlist URL`, `Track Count`, `Estimate Total`, 
+            `Spotify Playlist URL`, `Followers`, `Track Count`, `Estimate Total`, 
             `1st`, `2 - 10`, `11 - 20`, `21 - 50`, `+50`,
             `1 estimate`, `2 - 10 estimate`, `11 - 20 estimate`, `21 - 50 estimate`, `+50 estimate`
         FROM `{PROJECT_ID}.{dataset}.{table}`
@@ -94,6 +94,8 @@ def get_playlist_ids(playlist_url):
     # Extract values
     track_count = results.get("jan_data", {}).get("Track Count", "?")
     est0 = results.get("jan_data", {}).get("Estimate Total", "?")
+    followers = results.get("jan_data", {}).get("Followers", "?")
+
     est1 = results.get("dec_data", {}).get("Estimate Total", "?")
     est2 = results.get("nov_data", {}).get("Estimate Total", "?")
     est3 = results.get("oct_data", {}).get("Estimate Total", "?")
@@ -108,7 +110,8 @@ def get_playlist_ids(playlist_url):
     return {
         "track_count": track_count,
         "estimates": [est0, est1, est2, est3, est4],
-        "lssst": lssst
+        "lssst": lssst,
+        'Followers' : followers
     }
 
 

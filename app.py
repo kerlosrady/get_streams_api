@@ -1,6 +1,7 @@
 import os
 import json
 import pandas as pd
+import concurrent.futures  # Multi-threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google.cloud import bigquery
@@ -17,92 +18,99 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # ------------------------
 PROJECT_ID = "automatic-spotify-scraper"
 
-# Get the environment variable; if not set, default to the filename.
+# Get credentials from environment or use local file
 creds_input = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "automatic-spotify-scraper.json")
 
 try:
-    # If the environment variable ends with ".json", assume it's a file path.
     if creds_input.strip().endswith(".json"):
         credentials = service_account.Credentials.from_service_account_file(creds_input)
     else:
-        # Otherwise, assume it's a JSON string.
         creds_info = json.loads(creds_input)
         credentials = service_account.Credentials.from_service_account_info(creds_info)
+
     client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
     print("✅ BigQuery authentication successful!")
 except Exception as e:
     print(f"❌ Failed to authenticate with BigQuery: {e}")
     client = None
 
-# ------------------------
-# Helper function: read_from_bigquery
-# ------------------------
-def read_from_bigquery(dataset, table):
-    """
-    Read data from a BigQuery table and return as a Pandas DataFrame.
-    """
-    query = f"SELECT * FROM `{PROJECT_ID}.{dataset}.{table}` LIMIT 10000"
-    query_job = client.query(query)
-    results = query_job.result()
-    data = [dict(row) for row in results]
-    return pd.DataFrame(data)
 
 # ------------------------
-# Helper function: clean playlist id
+# Helper function: Fetch BigQuery Data (Optimized)
 # ------------------------
-def clean_playlist_id(playlist_url):
-    """Extract the playlist id from a Spotify playlist URL."""
-    return playlist_url.split('?')[0].replace('https://open.spotify.com/playlist/','')
+def fetch_data(dataset, table, playlist_id):
+    """
+    Fetch relevant columns from a BigQuery table, filtering by playlist_id.
+    """
+    query = f"""
+        SELECT 
+            `Spotify Playlist URL`, `Track Count`, `Estimate Total`, 
+            `1st`, `2 - 10`, `11 - 20`, `21 - 50`, `+50`,
+            `1 estimate`, `2 - 10 estimate`, `11 - 20 estimate`, `21 - 50 estimate`, `+50 estimate`
+        FROM `{PROJECT_ID}.{dataset}.{table}`
+        WHERE `Spotify Playlist URL` LIKE '%{playlist_id}%'
+        LIMIT 1
+    """
+
+    try:
+        query_job = client.query(query)
+        results = query_job.result()
+        data = [dict(row) for row in results]
+        return data[0] if data else None
+    except Exception as e:
+        print(f"⚠️ Query Error for {dataset}.{table}: {e}")
+        return None
+
 
 # ------------------------
-# Main function: get_playlist_ids
+# Main Function: get_playlist_ids (Optimized)
 # ------------------------
 def get_playlist_ids(playlist_url):
     """
-    Given a Spotify playlist URL, query five BigQuery tables (jan_data, dec_data, nov_data, oct_data, sep_data)
-    from the 'global_stream_tracker' dataset, and return a collection of estimates and track counts.
+    Fetches track count and estimates from BigQuery efficiently.
+    Uses multi-threading to fetch data in parallel.
     """
-    # Read all required tables from BigQuery
-    df_jan = read_from_bigquery('global_stream_tracker', 'jan_data')
-    df_dec = read_from_bigquery('global_stream_tracker', 'dec_data')
-    df_nov = read_from_bigquery('global_stream_tracker', 'nov_data')
-    df_oct = read_from_bigquery('global_stream_tracker', 'oct_data')
-    df_sep = read_from_bigquery('global_stream_tracker', 'sep_data')
-    
-    # Clean the playlist id from the URL
-    playlist_id = clean_playlist_id(playlist_url)
-    
-    # Helper: Get a single value from a column where 'Spotify Playlist URL' contains the playlist id.
-    def get_value(df, column, default='?'):
-        values = df.loc[df['Spotify Playlist URL'].str.contains(playlist_id, na=False), column].values
-        return values[0] if len(values) > 0 else default
+    playlist_id = playlist_url.split('?')[0].replace('https://open.spotify.com/playlist/', '')
 
-    # Get Track Count from jan_data
-    track_count = get_value(df_jan, 'Track Count', default='?')
+    dataset = "global_stream_tracker"
+    tables = ["jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
     
-    # Get Estimate Total values from each table
-    est0 = get_value(df_jan, 'Estimate Total', default='?')
-    est1 = get_value(df_dec, 'Estimate Total', default='?')
-    est2 = get_value(df_nov, 'Estimate Total', default='?')
-    est3 = get_value(df_oct, 'Estimate Total', default='?')
-    est4 = get_value(df_sep, 'Estimate Total', default='?')
+    # Use ThreadPoolExecutor to run queries in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_table = {
+            executor.submit(fetch_data, dataset, table, playlist_id): table for table in tables
+        }
+
+        # Collect results
+        results = {}
+        for future in concurrent.futures.as_completed(future_to_table):
+            table_name = future_to_table[future]
+            try:
+                data = future.result()
+                results[table_name] = data if data else {"error": "No data found"}
+            except Exception as e:
+                results[table_name] = {"error": str(e)}
+
+    # Extract values
+    track_count = results.get("jan_data", {}).get("Track Count", "?")
+    est0 = results.get("jan_data", {}).get("Estimate Total", "?")
+    est1 = results.get("dec_data", {}).get("Estimate Total", "?")
+    est2 = results.get("nov_data", {}).get("Estimate Total", "?")
+    est3 = results.get("oct_data", {}).get("Estimate Total", "?")
+    est4 = results.get("sep_data", {}).get("Estimate Total", "?")
     
-    # Get additional estimates from jan_data (10 columns)
-    estimate_columns = ['1st', '2 - 10', '11 - 20', '21 - 50', '+50',
-                        '1 estimate', '2 - 10 estimate', '11 - 20 estimate', '21 - 50 estimate', '+50 estimate']
-    lssst_values = df_jan.loc[df_jan['Spotify Playlist URL'].str.contains(playlist_id, na=False), estimate_columns].values
-    lssst = list(lssst_values[0]) if len(lssst_values) > 0 else ['?'] * len(estimate_columns)
-    
-    # Return all values in a dictionary
+    lssst = results.get("jan_data", {})
+    lssst = [lssst.get(col, "?") for col in [
+        "1st", "2 - 10", "11 - 20", "21 - 50", "+50",
+        "1 estimate", "2 - 10 estimate", "11 - 20 estimate", "21 - 50 estimate", "+50 estimate"
+    ]]
+
     return {
-        "est0": est0,
-        "est1": est1,
-        "est2": est2,
-        "est3": est3,
-        "est4": est4,
-        "lssst": lssst,
-        "track_count": track_count
+        "track_count": track_count,
+        "estimates": [est0, est1, est2, est3, est4],
+        "lssst": lssst
     }
+
 
 # ------------------------
 # API Endpoint: /get_playlist_ids
@@ -119,6 +127,7 @@ def api_get_playlist_ids():
         return jsonify({"status": "success", "data": results})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ------------------------
 # Main entry point for local testing

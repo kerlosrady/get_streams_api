@@ -43,8 +43,8 @@ def fetch_data(dataset, table, playlist_id):
     Fetch relevant columns from a BigQuery table, filtering by playlist_id.
     """
     query = f"""
-        SELECT 
-            `Spotify Playlist URL`, `Followers`, `Track Count`, `Estimate Total`, `Curator Name`,
+        SELECT
+            `Playlist Name`, `Spotify Playlist URL`, `Followers`, `Track Count`, `Estimate Total`, `Curator Name`,
             `1st`, `2 - 10`, `11 - 20`, `21 - 50`, `+50`,
             `1 estimate`, `2 - 10 estimate`, `11 - 20 estimate`, `21 - 50 estimate`, `+50 estimate`
         FROM `{PROJECT_ID}.{dataset}.{table}`
@@ -74,7 +74,7 @@ def get_playlist_ids(playlist_url):
 
     dataset = "global_stream_tracker"
     tables = ["jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
-    
+
     # Use ThreadPoolExecutor to run queries in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_table = {
@@ -96,11 +96,13 @@ def get_playlist_ids(playlist_url):
     est0 = results.get("jan_data", {}).get("Estimate Total", "?")
     followers = results.get("jan_data", {}).get("Followers", "?")
     curator = results.get("jan_data", {}).get("Curator Name", "?")
+    playlist_name = results.get("jan_data", {}).get("Playlist Name", "?")
+    
     est1 = results.get("dec_data", {}).get("Estimate Total", "?")
     est2 = results.get("nov_data", {}).get("Estimate Total", "?")
     est3 = results.get("oct_data", {}).get("Estimate Total", "?")
     est4 = results.get("sep_data", {}).get("Estimate Total", "?")
-    
+
     lssst = results.get("jan_data", {})
     lssst = [lssst.get(col, "?") for col in [
         "1st", "2 - 10", "11 - 20", "21 - 50", "+50",
@@ -112,7 +114,8 @@ def get_playlist_ids(playlist_url):
         "estimates": [est0, est1, est2, est3, est4],
         "lssst": lssst,
         'Followers' : followers,
-        'curator' : curator
+        'curator' : curator, 
+        'playlist_name' : playlist_name,
     }
 
 
@@ -125,7 +128,7 @@ def api_get_playlist_ids():
         data = request.get_json()
         if not data or "playlist_url" not in data:
             return jsonify({"status": "error", "message": "Missing 'playlist_url' in request."}), 400
-        
+
         playlist_url = data["playlist_url"]
         results = get_playlist_ids(playlist_url)
         return jsonify({"status": "success", "data": results})

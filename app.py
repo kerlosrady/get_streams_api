@@ -73,7 +73,7 @@ def get_playlist_ids(playlist_url):
     playlist_id = playlist_url.split('?')[0].replace('https://open.spotify.com/playlist/', '')
 
     dataset = "global_stream_tracker"
-    tables = ["jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
+    tables = ["march_data", "jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
 
     # Use ThreadPoolExecutor to run queries in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -92,18 +92,19 @@ def get_playlist_ids(playlist_url):
                 results[table_name] = {"error": str(e)}
 
     # Extract values
-    track_count = results.get("jan_data", {}).get("Track Count", "?")
-    est0 = results.get("jan_data", {}).get("Estimate Total", "?")
-    followers = results.get("jan_data", {}).get("Followers", "?")
-    curator = results.get("jan_data", {}).get("Curator Name", "?")
-    playlist_name = results.get("jan_data", {}).get("Playlist Name", "?")
-    
-    est1 = results.get("dec_data", {}).get("Estimate Total", "?")
-    est2 = results.get("nov_data", {}).get("Estimate Total", "?")
-    est3 = results.get("oct_data", {}).get("Estimate Total", "?")
-    est4 = results.get("sep_data", {}).get("Estimate Total", "?")
+    track_count = results.get("march_data", {}).get("Track Count", "?")
+    est0 = results.get("march_data", {}).get("Estimate Total", "?")
+    followers = results.get("march_data", {}).get("Followers", "?")
+    curator = results.get("march_data", {}).get("Curator Name", "?")
+    playlist_name = results.get("march_data", {}).get("Playlist Name", "?")
 
-    lssst = results.get("jan_data", {})
+    est1 = results.get("jan_data", {}).get("Estimate Total", "?")
+    est2 = results.get("dec_data", {}).get("Estimate Total", "?")
+    est3 = results.get("nov_data", {}).get("Estimate Total", "?")
+    est4 = results.get("oct_data", {}).get("Estimate Total", "?")
+    # est4 = results.get("sep_data", {}).get("Estimate Total", "?")
+
+    lssst = results.get("march_data", {})
     lssst = [lssst.get(col, "?") for col in [
         "1st", "2 - 10", "11 - 20", "21 - 50", "+50",
         "1 estimate", "2 - 10 estimate", "11 - 20 estimate", "21 - 50 estimate", "+50 estimate"
@@ -113,9 +114,9 @@ def get_playlist_ids(playlist_url):
         "track_count": track_count,
         "estimates": [est0, est1, est2, est3, est4],
         "lssst": lssst,
-        'Followers' : followers,
-        'curator' : curator, 
-        'playlist_name' : playlist_name,
+        'Followers': followers,
+        'curator': curator,
+        'playlist_name': playlist_name,
     }
 
 

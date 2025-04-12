@@ -98,10 +98,11 @@ def get_playlist_ids(playlist_url):
     curator = results.get("april_data", {}).get("Curator Name", "?")
     playlist_name = results.get("april_data", {}).get("Playlist Name", "?")
 
-    est1 = results.get("jan_data", {}).get("Estimate Total", "?")
-    est2 = results.get("dec_data", {}).get("Estimate Total", "?")
-    est3 = results.get("nov_data", {}).get("Estimate Total", "?")
-    est4 = results.get("oct_data", {}).get("Estimate Total", "?")
+    est1 = results.get("march_data", {}).get("Estimate Total", "?")
+    est2 = results.get("jan_data", {}).get("Estimate Total", "?")
+    est3 = results.get("dec_data", {}).get("Estimate Total", "?")
+    est4 = results.get("nov_data", {}).get("Estimate Total", "?")
+    # est4 = results.get("oct_data", {}).get("Estimate Total", "?")
     # est4 = results.get("sep_data", {}).get("Estimate Total", "?")
 
     lssst = results.get("april_data", {})

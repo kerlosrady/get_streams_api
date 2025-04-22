@@ -16,7 +16,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # ------------------------
 # BigQuery Authentication
 # ------------------------
-PROJECT_ID = "automatic-spotify-scraper"
+PROJECT_ID = "desktop-spotify-400111"
 
 # Get credentials from environment or use local file
 creds_input = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "automatic-spotify-scraper.json")

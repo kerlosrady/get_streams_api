@@ -44,14 +44,15 @@ def fetch_data(dataset, table, playlist_id):
     """
     query = f"""
         SELECT
-            `Playlist Name`, `Spotify Playlist URL`, `Followers`, `Track Count`, `Estimate Total`, `Curator Name`,
-            `1st`, `2 - 10`, `11 - 20`, `21 - 50`, `+50`,
-            `1 estimate`, `2 - 10 estimate`, `11 - 20 estimate`, `21 - 50 estimate`, `+50 estimate`
+            `Playlist`, `Spotify Playlist URL`, `Followers`, `Track Count`, `total_stream_estimate`, `Curator`,
+            `1_isitagoodplaylist`, `2-10_isitagoodplaylist`, `11-20_isitagoodplaylist`, `21-50_isitagoodplaylist`, `50+_isitagoodplaylist`,
+            `estimated_1st`, `estimated_2_10`, `estimated_11_20`, `estimated_21_50`, `estimated_+50`, `streams_april`, `streams_march`,
+            `streams_feb`, `streams_jan`
         FROM `{PROJECT_ID}.{dataset}.{table}`
         WHERE `Spotify Playlist URL` LIKE '%{playlist_id}%'
         LIMIT 1
     """
-
+    
     try:
         query_job = client.query(query)
         results = query_job.result()
@@ -73,7 +74,8 @@ def get_playlist_ids(playlist_url):
     playlist_id = playlist_url.split('?')[0].replace('https://open.spotify.com/playlist/', '')
 
     dataset = "global_stream_tracker"
-    tables = ['april_data', "march_data", "jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
+    # tables = ['april_data', "march_data", "jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
+    tables = ['merged_may_all']
 
     # Use ThreadPoolExecutor to run queries in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -92,24 +94,22 @@ def get_playlist_ids(playlist_url):
                 results[table_name] = {"error": str(e)}
 
     # Extract values
-    track_count = results.get("april_data", {}).get("Track Count", "?")
-    est0 = results.get("april_data", {}).get("Estimate Total", "?")
-    followers = results.get("april_data", {}).get("Followers", "?")
-    curator = results.get("april_data", {}).get("Curator Name", "?")
-    playlist_name = results.get("april_data", {}).get("Playlist Name", "?")
+    track_count = results.get("merged_may_all", {}).get("Track Count", "?")
+    est0 = results.get("merged_may_all", {}).get("total_stream_estimate", "?")
+    followers = results.get("merged_may_all", {}).get("Followers", "?")
+    curator = results.get("merged_may_all", {}).get("Curator", "?")
+    playlist_name = results.get("merged_may_all", {}).get("Playlist", "?")
 
-    est1 = results.get("march_data", {}).get("Estimate Total", "?")
-    est2 = results.get("jan_data", {}).get("Estimate Total", "?")
-    est3 = results.get("dec_data", {}).get("Estimate Total", "?")
-    est4 = results.get("nov_data", {}).get("Estimate Total", "?")
+    est1 = results.get("merged_may_all", {}).get("streams_april", "?")
+    est2 = results.get("merged_may_all", {}).get("streams_march", "?")
+    est3 = results.get("merged_may_all", {}).get("streams_feb", "?")
+    est4 = results.get("merged_may_all", {}).get("streams_jan", "?")
     # est4 = results.get("oct_data", {}).get("Estimate Total", "?")
     # est4 = results.get("sep_data", {}).get("Estimate Total", "?")
 
-    lssst = results.get("april_data", {})
-    lssst = [lssst.get(col, "?") for col in [
-        "1st", "2 - 10", "11 - 20", "21 - 50", "+50",
-        "1 estimate", "2 - 10 estimate", "11 - 20 estimate", "21 - 50 estimate", "+50 estimate"
-    ]]
+    lssst = results.get("merged_may_all", {})
+    lssst = [lssst.get(col, "?") for col in ["1_isitagoodplaylist", "2-10_isitagoodplaylist", "11-20_isitagoodplaylist",
+                                             "21-50_isitagoodplaylist", "50+_isitagoodplaylist", "estimated_1st", "estimated_2_10", "estimated_11_20", "estimated_21_50", "estimated_+50" ]]
 
     return {
         "track_count": track_count,

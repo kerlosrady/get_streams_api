@@ -52,16 +52,37 @@ def fetch_data(dataset, table, playlist_id):
         WHERE `Spotify Playlist URL` LIKE '%{playlist_id}%'
         LIMIT 1
     """
-    
+
     try:
         query_job = client.query(query)
         results = query_job.result()
+        print(results)
         data = [dict(row) for row in results]
         return data[0] if data else None
     except Exception as e:
         print(f"⚠️ Query Error for {dataset}.{table}: {e}")
         return None
 
+def fetch_data2(dataset, table, playlist_id):
+    """
+    Fetch relevant columns from a BigQuery table, filtering by playlist_id.
+    """
+    query = f"""
+        SELECT
+            `ad link`
+        FROM `{PROJECT_ID}.{dataset}.{table}`
+        WHERE `playlist url` LIKE '%{playlist_id}%'
+        LIMIT 5
+    """
+
+    try:
+        query_job = client.query(query)
+        results = query_job.result()
+        results={'ad link' : [x['ad link'] for x in results]}
+        return results if len(results['ad link'])>0 else None
+    except Exception as e:
+        print(f"⚠️ Query Error for {dataset}.{table}: {e}")
+        return None
 
 # ------------------------
 # Main Function: get_playlist_ids (Optimized)
@@ -93,6 +114,25 @@ def get_playlist_ids(playlist_url):
             except Exception as e:
                 results[table_name] = {"error": str(e)}
 
+    dataset = "ads_data"
+    # tables = ['april_data', "march_data", "jan_data", "dec_data", "nov_data", "oct_data", "sep_data"]
+    tables = ['ads_data']
+
+    # Use ThreadPoolExecutor to run queries in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_table = {
+            executor.submit(fetch_data2, dataset, table, playlist_id): table for table in tables
+        }
+
+        # Collect results
+        results2 = {}
+        for future in concurrent.futures.as_completed(future_to_table):
+            table_name = future_to_table[future]
+            try:
+                data = future.result()
+                results2[table_name] = data if data else {"error": "No data found"}
+            except Exception as e:
+                results2[table_name] = {"error": str(e)}
     # Extract values
     track_count = results.get("merged_may_all", {}).get("Track Count", "?")
     est0 = results.get("merged_may_all", {}).get("total_stream_estimate", "?")
@@ -106,7 +146,8 @@ def get_playlist_ids(playlist_url):
     est4 = results.get("merged_may_all", {}).get("streams_jan", "?")
     # est4 = results.get("oct_data", {}).get("Estimate Total", "?")
     # est4 = results.get("sep_data", {}).get("Estimate Total", "?")
-
+    ads_links= results2.get("ads_data", {}).get("ad link", "?")
+    print(ads_links)
     lssst = results.get("merged_may_all", {})
     lssst = [lssst.get(col, "?") for col in ["1_isitagoodplaylist", "2-10_isitagoodplaylist", "11-20_isitagoodplaylist",
                                              "21-50_isitagoodplaylist", "50+_isitagoodplaylist", "estimated_1st", "estimated_2_10", "estimated_11_20", "estimated_21_50", "estimated_+50" ]]
@@ -118,6 +159,7 @@ def get_playlist_ids(playlist_url):
         'Followers': followers,
         'curator': curator,
         'playlist_name': playlist_name,
+        'ads_links': ', '.join(ads_links)
     }
 
 

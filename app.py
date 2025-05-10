@@ -147,6 +147,8 @@ def get_playlist_ids(playlist_url):
     # est4 = results.get("oct_data", {}).get("Estimate Total", "?")
     # est4 = results.get("sep_data", {}).get("Estimate Total", "?")
     ads_links= results2.get("ads_data", {}).get("ad link", "?")
+    for x in range(0,5-len(ads_links)):
+        ads_links.append("")
     print(ads_links)
     lssst = results.get("merged_may_all", {})
     lssst = [lssst.get(col, "?") for col in ["1_isitagoodplaylist", "2-10_isitagoodplaylist", "11-20_isitagoodplaylist",
@@ -159,7 +161,7 @@ def get_playlist_ids(playlist_url):
         'Followers': followers,
         'curator': curator,
         'playlist_name': playlist_name,
-        'ads_links': ', '.join(ads_links)
+        'ads_links': ads_links
     }
 
 

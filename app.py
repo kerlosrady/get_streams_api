@@ -79,7 +79,7 @@ def fetch_data2(dataset, table, playlist_id):
         query_job = client.query(query)
         results = query_job.result()
         results={'ad link' : [x['ad link'] for x in results]}
-        return results if len(results['ad link'])>0 else None
+        return results if len(results['ad link'])>0 else []
     except Exception as e:
         print(f"⚠️ Query Error for {dataset}.{table}: {e}")
         return None
@@ -146,7 +146,7 @@ def get_playlist_ids(playlist_url):
     est4 = results.get("merged_may_all", {}).get("streams_jan", "?")
     # est4 = results.get("oct_data", {}).get("Estimate Total", "?")
     # est4 = results.get("sep_data", {}).get("Estimate Total", "?")
-    ads_links= results2.get("ads_data", {}).get("ad link", "?")
+    ads_links= results2.get("ads_data", {}).get("ad link", [])
     for x in range(0,5-len(ads_links)):
         ads_links.append("")
     print(ads_links)
